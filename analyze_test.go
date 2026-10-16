@@ -78,6 +78,24 @@ func TestAnalyze(t *testing.T) {
 			[]string{"testdata/ignore"},
 			"",
 		},
+		// A directory named explicitly is analyzed even when its own name
+		// would cause it to be skipped during a recursive walk.
+		{
+			[]string{"testdata/ignore/vendor"},
+			"1 vendor a testdata/ignore/vendor/file.go:3:1",
+		},
+		{
+			[]string{"testdata/ignore/testdata"},
+			"1 testdata a testdata/ignore/testdata/file.go:3:1",
+		},
+		{
+			[]string{"testdata/ignore/_underscore"},
+			"1 underscore a testdata/ignore/_underscore/file.go:3:1",
+		},
+		{
+			[]string{"testdata/ignore/.dotname"},
+			"1 dotname a testdata/ignore/.dotname/file.go:3:1",
+		},
 	}
 
 	for _, tt := range tests {

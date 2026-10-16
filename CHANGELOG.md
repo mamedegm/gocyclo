@@ -5,6 +5,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- Analyze a directory named on the command line even if its own name is
+  `testdata` or `vendor` or begins with `.` or `_`; such directories are
+  still skipped when they are found while walking another directory
+- `Stats.AverageComplexity` returns 0 instead of NaN for empty stats, so
+  `-avg` prints `Average: 0` when no functions are found
+
 ### Fixed
 - Report each function literal in `var a, b = func() {}, func() {}` under
   its own name instead of the first name

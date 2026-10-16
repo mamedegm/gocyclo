@@ -30,8 +30,11 @@ func (s Stat) String() string {
 type Stats []Stat
 
 // AverageComplexity calculates the average cyclomatic complexity of the
-// cyclomatic complexities in s.
+// cyclomatic complexities in s. It returns 0 if s is empty.
 func (s Stats) AverageComplexity() float64 {
+	if len(s) == 0 {
+		return 0
+	}
 	return float64(s.TotalComplexity()) / float64(len(s))
 }
 
