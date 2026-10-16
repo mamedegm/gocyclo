@@ -14,6 +14,8 @@ func recvString(recv ast.Expr) string {
 		return t.Name
 	case *ast.StarExpr:
 		return "*" + recvString(t.X)
+	case *ast.ParenExpr:
+		return recvString(t.X)
 	case *ast.IndexExpr:
 		return recvString(t.X)
 	case *ast.IndexListExpr:

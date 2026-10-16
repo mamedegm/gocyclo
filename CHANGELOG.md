@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+### Fixed
+- Report each function literal in `var a, b = func() {}, func() {}` under
+  its own name instead of the first name
+- Report the type name for parenthesized method receivers such as
+  `func (s (T)) m()` instead of `BADRECV`
+- Honor a `gocyclo:ignore` directive on a single specification inside a
+  grouped `var (...)` declaration
+
 ## [0.6.0] - 2022-06-15
 ### Changed
 - Breaking: remove meaningless `-total` and `-total-short` options

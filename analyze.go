@@ -122,12 +122,15 @@ func (a *fileAnalyzer) analyzeDecl(d ast.Decl) {
 			if !ok {
 				continue
 			}
-			for _, value := range valueSpec.Values {
+			if parseDirectives(valueSpec.Doc).HasIgnore() {
+				continue
+			}
+			for i, value := range valueSpec.Values {
 				funcLit, ok := value.(*ast.FuncLit)
-				if !ok {
+				if !ok || i >= len(valueSpec.Names) {
 					continue
 				}
-				a.addStatIfNotIgnored(funcLit, valueSpec.Names[0].Name, decl.Doc)
+				a.addStatIfNotIgnored(funcLit, valueSpec.Names[i].Name, decl.Doc)
 			}
 		}
 	}
