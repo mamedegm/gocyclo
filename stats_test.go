@@ -12,6 +12,8 @@ func TestAverageComplexity(t *testing.T) {
 		stats gocyclo.Stats
 		want  float64
 	}{
+		{gocyclo.Stats{}, 0},
+		{nil, 0},
 		{gocyclo.Stats{
 			{Complexity: 2},
 		}, 2},

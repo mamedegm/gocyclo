@@ -46,7 +46,8 @@ func analyzeDir(dirname string, ignore *regexp.Regexp, stats Stats) Stats {
 		}
 
 		if entry.IsDir() {
-			if skipDir(entry.Name()) {
+			// A directory named explicitly by the caller is always analyzed.
+			if path != dirname && skipDir(entry.Name()) {
 				return filepath.SkipDir
 			}
 		} else if isGoFile(entry.Name()) {

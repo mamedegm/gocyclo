@@ -100,6 +100,11 @@ Average: 2.2
 			stdout: "2.2\n",
 		},
 		{
+			name:   "average without functions",
+			args:   []string{"-avg", "-ignore", "ifs", ifsFile},
+			stdout: "Average: 0\n",
+		},
+		{
 			name: "ignore",
 			args: []string{"-ignore", "ifs", ifsFile, "../../testdata/directory"},
 			stdout: `1 directory a ../../testdata/directory/file1.go:3:1
