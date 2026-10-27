@@ -5,7 +5,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- `AnalyzePaths`, which returns the problems it encountered as an error
+  instead of logging them
+
 ### Changed
+- Breaking: the command exits with code 2, not 0, when a path does not
+  exist, and with code 2, not 1, when a file cannot be parsed or the
+  `-ignore` expression is invalid, so that code 1 always means `-over`
+  found functions
+- `Analyze` and the command no longer stop at a file that cannot be
+  parsed: they log it and continue with the remaining files, and the
+  command still prints the functions it could analyze
 - Analyze a directory named on the command line even if its own name is
   `testdata` or `vendor` or begins with `.` or `_`; such directories are
   still skipped when they are found while walking another directory
@@ -13,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `-avg` prints `Average: 0` when no functions are found
 
 ### Fixed
+- Continue analyzing a directory after one of its subdirectories cannot be
+  read, and report the error, instead of silently skipping every file the
+  walk had not reached yet
 - Report each function literal in `var a, b = func() {}, func() {}` under
   its own name instead of the first name
 - Report the type name for parenthesized method receivers such as

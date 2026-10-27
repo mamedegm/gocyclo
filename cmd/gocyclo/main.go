@@ -20,6 +20,11 @@
 //
 // The output fields for each line are:
 // <complexity> <package> <function> <file:line:column>
+//
+// The exit code is 2 if a path could not be analyzed (it does not exist, a
+// directory cannot be read, a file cannot be parsed) or the flags are
+// invalid, 1 if -over found functions, and 0 otherwise. The functions that
+// could be analyzed are reported even when the exit code is 2.
 package main
 
 import (
@@ -29,8 +34,16 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/fzipp/gocyclo"
+)
+
+// Exit codes. exitError is distinct from exitOver so that a script can tell
+// "the code is too complex" apart from "the code could not be analyzed".
+const (
+	exitOver  = 1
+	exitError = 2
 )
 
 const usageDoc = `Calculate cyclomatic complexities of Go functions.
@@ -47,6 +60,9 @@ Flags:
 
 The output fields for each line are:
 <complexity> <package> <function> <file:line:column>
+
+The exit code is 2 if a path could not be analyzed or the flags are invalid,
+1 if -over found functions, and 0 otherwise.
 `
 
 func main() {
@@ -65,7 +81,7 @@ func main() {
 		usage()
 	}
 
-	allStats := gocyclo.Analyze(paths, regex(*ignore))
+	allStats, err := gocyclo.AnalyzePaths(paths, regex(*ignore))
 	shownStats := allStats.SortAndFilter(*top, *over)
 
 	printStats(shownStats)
@@ -73,8 +89,16 @@ func main() {
 		printAverage(allStats, *avgShort)
 	}
 
+	if err != nil {
+		// errors.Join separates the problems with newlines; give each one
+		// its own prefixed line.
+		for _, line := range strings.Split(err.Error(), "\n") {
+			log.Print(line)
+		}
+		os.Exit(exitError)
+	}
 	if *over > 0 && len(shownStats) > 0 {
-		os.Exit(1)
+		os.Exit(exitOver)
 	}
 }
 
@@ -84,7 +108,8 @@ func regex(expr string) *regexp.Regexp {
 	}
 	re, err := regexp.Compile(expr)
 	if err != nil {
-		log.Fatal(err)
+		log.Print(err)
+		os.Exit(exitError)
 	}
 	return re
 }
