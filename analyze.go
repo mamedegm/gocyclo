@@ -5,6 +5,7 @@
 package gocyclo
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -22,27 +23,57 @@ import (
 // all Go files under that directory are analyzed recursively.
 // Files with paths matching the 'ignore' regular expressions are skipped.
 // The 'ignore' parameter can be nil, meaning that no files are skipped.
+// A path that does not exist, a directory that cannot be read, or a file
+// that cannot be parsed is logged and skipped, and the analysis continues
+// with the remaining files. Use AnalyzePaths to receive these problems as
+// an error instead.
 func Analyze(paths []string, ignore *regexp.Regexp) Stats {
-	var stats Stats
+	a := pathAnalyzer{ignore: ignore}
+	a.analyzePaths(paths)
+	for _, err := range a.errs {
+		log.Println(err)
+	}
+	return a.stats
+}
+
+// AnalyzePaths is like Analyze, but instead of logging the problems it
+// encounters it returns them, joined with errors.Join, after analyzing
+// every file it could. The returned Stats are valid even if err is non-nil.
+func AnalyzePaths(paths []string, ignore *regexp.Regexp) (Stats, error) {
+	a := pathAnalyzer{ignore: ignore}
+	a.analyzePaths(paths)
+	return a.stats, errors.Join(a.errs...)
+}
+
+type pathAnalyzer struct {
+	ignore *regexp.Regexp
+	stats  Stats
+	errs   []error
+}
+
+func (a *pathAnalyzer) analyzePaths(paths []string) {
 	for _, path := range paths {
 		info, err := os.Stat(path)
 		if err != nil {
-			log.Printf("could not get file info for path %q: %s\n", path, err)
+			a.errs = append(a.errs, fmt.Errorf("could not get file info for path %q: %w", path, err))
 			continue
 		}
 		if info.IsDir() {
-			stats = analyzeDir(path, ignore, stats)
+			a.analyzeDir(path)
 		} else {
-			stats = analyzeFile(path, ignore, stats)
+			a.analyzeFile(path)
 		}
 	}
-	return stats
 }
 
-func analyzeDir(dirname string, ignore *regexp.Regexp, stats Stats) Stats {
-	filepath.WalkDir(dirname, func(path string, entry fs.DirEntry, err error) error {
+func (a *pathAnalyzer) analyzeDir(dirname string) {
+	// The callback never returns an error, so neither does WalkDir.
+	_ = filepath.WalkDir(dirname, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			// Record the entry that could not be read and continue with
+			// its siblings rather than abandoning the rest of the walk.
+			a.errs = append(a.errs, err)
+			return nil
 		}
 
 		if entry.IsDir() {
@@ -51,11 +82,10 @@ func analyzeDir(dirname string, ignore *regexp.Regexp, stats Stats) Stats {
 				return filepath.SkipDir
 			}
 		} else if isGoFile(entry.Name()) {
-			stats = analyzeFile(path, ignore, stats)
+			a.analyzeFile(path)
 		}
 		return nil
 	})
-	return stats
 }
 
 func skipDir(name string) bool {
@@ -72,16 +102,17 @@ func isGoFile(filename string) bool {
 	return strings.HasSuffix(filename, ".go")
 }
 
-func analyzeFile(path string, ignore *regexp.Regexp, stats Stats) Stats {
-	if isIgnored(path, ignore) {
-		return stats
+func (a *pathAnalyzer) analyzeFile(path string) {
+	if isIgnored(path, a.ignore) {
+		return
 	}
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
 	if err != nil {
-		log.Fatal(err)
+		a.errs = append(a.errs, err)
+		return
 	}
-	return AnalyzeASTFile(f, fset, stats)
+	a.stats = AnalyzeASTFile(f, fset, a.stats)
 }
 
 func isIgnored(path string, ignore *regexp.Regexp) bool {

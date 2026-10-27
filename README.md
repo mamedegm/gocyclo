@@ -55,6 +55,9 @@ Flags:
 
 The output fields for each line are:
 <complexity> <package> <function> <file:line:column>
+
+The exit code is 2 if a path could not be analyzed or the flags are invalid,
+1 if -over found functions, and 0 otherwise.
 ```
 
 ## Examples

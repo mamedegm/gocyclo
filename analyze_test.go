@@ -1,11 +1,90 @@
 package gocyclo_test
 
 import (
+	"bytes"
+	"log"
+	"os"
+	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/fzipp/gocyclo"
 )
+
+func funcNames(stats gocyclo.Stats) []string {
+	names := make([]string, len(stats))
+	for i, s := range stats {
+		names[i] = s.FuncName
+	}
+	slices.Sort(names)
+	return names
+}
+
+func TestAnalyzePathsContinuesAfterErrors(t *testing.T) {
+	stats, err := gocyclo.AnalyzePaths(
+		[]string{"does-not-exist.go", "testdata/broken", "testdata/ifs.go"}, nil)
+
+	if got, want := funcNames(stats), []string{"f1", "f2", "f2else", "f3", "f3nested", "ok"}; !slices.Equal(got, want) {
+		t.Errorf("analyzed functions %q, want %q", got, want)
+	}
+	if err == nil {
+		t.Fatal("got no error, want one for the missing path and one for the unparsable file")
+	}
+	for _, want := range []string{`"does-not-exist.go"`, "testdata/broken/broken.go:3:"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q does not mention %s", err, want)
+		}
+	}
+}
+
+func TestAnalyzePathsContinuesAfterUnreadableDirectory(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("needs Unix permissions that apply to the current user")
+	}
+	root := t.TempDir()
+	for _, name := range []string{"a", "b", "c"} {
+		dir := filepath.Join(root, name)
+		if err := os.Mkdir(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		src := "package " + name + "\n\nfunc " + name + "() {}\n"
+		if err := os.WriteFile(filepath.Join(dir, "f.go"), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	unreadable := filepath.Join(root, "b")
+	if err := os.Chmod(unreadable, 0); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o755) })
+
+	stats, err := gocyclo.AnalyzePaths([]string{root}, nil)
+
+	// "c" comes after the unreadable "b" in the walk and must still be analyzed.
+	if got, want := funcNames(stats), []string{"a", "c"}; !slices.Equal(got, want) {
+		t.Errorf("analyzed functions %q, want %q", got, want)
+	}
+	if err == nil || !strings.Contains(err.Error(), unreadable) {
+		t.Errorf("error %v does not name the unreadable directory %s", err, unreadable)
+	}
+}
+
+func TestAnalyzeLogsErrorsAndContinues(t *testing.T) {
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+
+	stats := gocyclo.Analyze([]string{"testdata/broken"}, nil)
+
+	if got, want := funcNames(stats), []string{"ok"}; !slices.Equal(got, want) {
+		t.Errorf("analyzed functions %q, want %q", got, want)
+	}
+	if !strings.Contains(buf.String(), "testdata/broken/broken.go:3:") {
+		t.Errorf("log output %q does not report the unparsable file", buf.String())
+	}
+}
 
 func TestAnalyze(t *testing.T) {
 	tests := []struct {

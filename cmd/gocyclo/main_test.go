@@ -112,15 +112,40 @@ Average: 2.2
 `,
 		},
 		{
-			name:      "missing path is reported and skipped",
+			name:      "missing path is reported and exits 2",
 			args:      []string{"-top", "1", "does-not-exist.go", ifsFile},
 			stdout:    "3 testdata f3 ../../testdata/ifs.go:17:1\n",
+			code:      2,
 			stderrSub: `gocyclo: could not get file info for path "does-not-exist.go"`,
+		},
+		{
+			name:      "unparsable file is reported, the rest analyzed, exits 2",
+			args:      []string{"../../testdata/broken"},
+			stdout:    "1 broken ok ../../testdata/broken/ok.go:3:1\n",
+			code:      2,
+			stderrSub: "gocyclo: ../../testdata/broken/broken.go:3:",
+		},
+		{
+			// Exit code 1 must mean only that -over found functions.
+			name: "an error takes precedence over -over matches",
+			args: []string{"-over", "2", ifsFile, "does-not-exist.go"},
+			stdout: `3 testdata f3 ../../testdata/ifs.go:17:1
+3 testdata f3nested ../../testdata/ifs.go:24:1
+`,
+			code:      2,
+			stderrSub: `gocyclo: could not get file info for path "does-not-exist.go"`,
+		},
+		{
+			name: "each error gets its own prefixed line",
+			args: []string{"missing-a.go", "missing-b.go"},
+			code: 2,
+			stderrSub: `gocyclo: could not get file info for path "missing-a.go": stat missing-a.go: no such file or directory
+gocyclo: could not get file info for path "missing-b.go"`,
 		},
 		{
 			name:      "invalid ignore expression",
 			args:      []string{"-ignore", "(", ifsFile},
-			code:      1,
+			code:      2,
 			stderrSub: "gocyclo: error parsing regexp",
 		},
 		{
